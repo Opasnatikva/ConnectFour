@@ -1,12 +1,13 @@
-import pprint
+import random
+import copy
 
 """7 columns, 6 rows"""
 """Line of 4 wins, vertically, horizontally, diagonally"""
 
 BOARD_SIZE = 6, 7
 LINE_LENGTH = 4
-PIECE_ONE = chr(int('2B24', 16))  # Unicode for white square
-PIECE_TWO = chr(int('25EF', 16))  # Unicode for black square
+PIECE_ONE = chr(int('2B24', 16))  # Unicode for white circle
+PIECE_TWO = chr(int('25EF', 16))  # Unicode for black circle
 EMPTY_SQUARE = " "
 PIECES = [PIECE_ONE, PIECE_TWO]
 
@@ -48,6 +49,64 @@ def player_input(board):
                 continue
             return col_index
         print("Incorrect input!")
+
+
+def bot_random_move(board):
+    """Randomly selects and returns a valid non-full column"""
+    while True:
+        col_index = random.randrange(0, BOARD_SIZE[1])
+        if board[0][col_index] == EMPTY_SQUARE:
+            return col_index
+
+
+def monte_carlo(board, column, player):
+    """Plays a randomly generated game based on the current state of the board,
+     and returns an evaluation of the outcome"""
+    local_board = copy.deepcopy(board)
+    local_player = copy.deepcopy(player)
+    first_turn = True
+    while True:
+        if first_turn:  # On the first turn the column choice is fixed, after that it is random
+            place_piece(local_board, column, local_player)
+            first_turn = False
+        else:
+            place_piece(local_board, bot_random_move(local_board), local_player)
+        if win_con(local_board):
+            return 1 if local_player == player else -1
+        if board_full(local_board):
+            return 0
+        local_player = PIECE_TWO if local_player == PIECE_ONE else PIECE_ONE
+
+
+def counter_win(board, player):
+    """Checks if the enemy has a winning move, and returns the first column index that would result in enemy win"""
+    local_player = PIECE_TWO if player == PIECE_ONE else PIECE_ONE
+    for column in range(BOARD_SIZE[1]):
+        local_board = copy.deepcopy(board)
+        place_piece(local_board, column, local_player)
+        if win_con(local_board):
+            return column
+    return False
+
+
+def evaluate_moves(board, player, iterations_per_column):
+    """Evaluates the strength of possible moves by recording the results of a number of monte_carlo functions"""
+    """Returns the index of the column with the highest value"""
+    results = [0] * BOARD_SIZE[1]  # Creates list to contain the evaluations
+    for column in range(BOARD_SIZE[1]):  # Iterates each possible move
+        if board[0][column] == EMPTY_SQUARE:
+            for __ in range(iterations_per_column):
+                results[column] += monte_carlo(board, column, player)  # Adds the result to the list under the col index
+        else:
+            results[column] = 0
+    biggest_number = results[0]
+    biggest_index = 0
+    for number_index in range(len(results)):
+        if results[number_index] > biggest_number:
+            biggest_number = results[number_index]
+            biggest_index = number_index
+    print(results)
+    return biggest_index
 
 
 def check_line(line):
@@ -103,9 +162,19 @@ def board_full(board):
 if __name__ == "__main__":
     player = PIECE_ONE
     board = create_board()
+    board[-1][2] = PIECE_TWO
+    board[-1][3] = PIECE_TWO
+    board[-1][4] = PIECE_TWO
     print_board(board)
     while True:
-        place_piece(board, player_input(board), player)
+        if player == PIECE_ONE:
+            place_piece(board, player_input(board), player)
+        else:
+            counter_move = counter_win(board, player)
+            if counter_win(board, player):
+                place_piece(board, counter_move, player)
+            else:
+                place_piece(board, evaluate_moves(board, player, 50), player)
         print_board(board)
         if board_full(board):
             print("Draw!")
@@ -114,3 +183,15 @@ if __name__ == "__main__":
             print(player, "wins!")
             break
         player = PIECE_TWO if player == PIECE_ONE else PIECE_ONE
+        print("")
+
+    # while True:
+    #     place_piece(board, player_input(board), player)
+    #     print_board(board)
+    #     if board_full(board):
+    #         print("Draw!")
+    #         break
+    #     if win_con(board):
+    #         print(player, "wins!")
+    #         break
+    #     player = PIECE_TWO if player == PIECE_ONE else PIECE_ONE
